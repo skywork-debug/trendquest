@@ -1,0 +1,1997 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrendQuest - 每日盤面測驗 (雲端連線版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'Noto Sans TC', 'sans-serif']
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            900: '#0c4a6e',
+                        },
+                        bull: '#10b981', // 極光綠 (專業做多)
+                        bear: '#f43f5e', // 霓虹洋紅 (專業做空)
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: radial-gradient(130% 100% at top left, #f8fafc 20%, #e2e8f0 70%, #cbd5e1 100%);
+            min-height: 100vh;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 8px 32px 0 rgba(15, 23, 42, 0.05);
+        }
+        .glow-button-bull {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+            transition: all 0.3s ease;
+        }
+        .glow-button-bull:hover {
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.6);
+            transform: translateY(-2px);
+        }
+        .glow-button-bear {
+            box-shadow: 0 0 15px rgba(244, 63, 94, 0.3);
+            transition: all 0.3s ease;
+        }
+        .glow-button-bear:hover {
+            box-shadow: 0 0 25px rgba(244, 63, 94, 0.6);
+            transform: translateY(-2px);
+        }
+        .achievement-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .achievement-card:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.08);
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.03);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(14, 165, 233, 0.3);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(14, 165, 233, 0.6);
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased font-sans pb-12">
+
+    <div id="firebase-status-banner" class="bg-indigo-600 text-white text-[11px] font-bold text-center py-1.5 px-4 flex justify-center items-center space-x-2">
+        <i class="fa-solid fa-wifi"></i>
+        <span id="firebase-status-text">正在偵測雲端連線狀態...</span>
+    </div>
+
+    <header class="sticky top-0 z-40 w-full glass-panel border-b border-slate-200/80">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-tr from-brand-600 to-indigo-500 text-white p-2.5 rounded-2xl shadow-md flex items-center justify-center">
+                    <i class="fa-solid fa-chart-line text-xl"></i>
+                </div>
+                <div>
+                    <span class="text-xl font-black bg-gradient-to-r from-brand-600 to-indigo-600 bg-clip-text text-transparent tracking-tight">TrendQuest</span>
+                    <span id="current-global-phase-badge" class="hidden sm:inline-block text-[10px] ml-2 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 font-bold">第三季 ‧ 階段 1</span>
+                </div>
+            </div>
+
+            <div id="user-navbar-section" class="flex items-center space-x-4">
+                <button onclick="openAchievementsModal()" class="flex items-center px-4 py-2 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200/50 text-xs font-bold transition">
+                    <i class="fa-solid fa-trophy mr-2 text-amber-500 animate-bounce"></i>成就中心
+                </button>
+
+                <div id="guest-buttons" class="flex items-center space-x-2">
+                    <button onclick="openAuthModal('login')" class="px-4 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition">登入</button>
+                    <button onclick="openAuthModal('register')" class="px-4 py-2 rounded-xl text-xs font-semibold bg-brand-600 text-white hover:bg-brand-700 transition">註冊帳號</button>
+                </div>
+
+                <div id="user-profile-widget" class="hidden flex items-center space-x-3 bg-slate-100/80 px-3 py-1.5 rounded-full cursor-pointer hover:bg-slate-200 border border-slate-200/50 transition" onclick="toggleProfilePanel()">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold" id="user-avatar-initial">U</div>
+                    <div class="text-left hidden sm:block">
+                        <span class="text-xs font-bold block leading-tight text-slate-700" id="user-display-nickname">玩家</span>
+                        <span class="text-[10px] text-brand-600 font-bold" id="user-display-score">🔥 0 PTS</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div id="profilePanel" class="hidden fixed inset-y-0 right-0 z-50 w-full max-w-sm glass-panel border-l border-slate-200/80 shadow-2xl flex flex-col transition-all duration-300 transform translate-x-full">
+        <div class="p-6 border-b flex justify-between items-center bg-slate-50/50">
+            <h2 class="font-black text-lg flex items-center"><i class="fa-solid fa-circle-user mr-2 text-brand-600"></i>交易員分析儀表板</h2>
+            <button onclick="toggleProfilePanel()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <div class="p-6 flex-1 overflow-y-auto space-y-6">
+            <div class="bg-gradient-to-tr from-brand-50 to-indigo-50 p-5 rounded-2xl border border-brand-100">
+                <div class="flex items-center space-x-4 mb-4">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-brand-500 to-indigo-500 flex items-center justify-center text-white text-lg font-bold" id="panel-avatar">U</div>
+                    <div>
+                        <h3 class="font-black text-base" id="panel-nickname">超級交易員</h3>
+                        <p class="text-xs text-slate-400" id="panel-email">test@example.com</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-center mt-2">
+                    <div class="bg-white/80 p-2.5 rounded-xl border border-slate-100">
+                        <p class="text-[10px] text-slate-400 font-bold">歷史總累積積分</p>
+                        <p class="text-base font-black text-slate-700" id="panel-score">0 PTS</p>
+                    </div>
+                    <div class="bg-white/80 p-2.5 rounded-xl border border-slate-100">
+                        <p class="text-[10px] text-slate-400 font-bold">解鎖最高頭銜</p>
+                        <p class="text-xs font-black text-brand-600" id="panel-title">韭菜新手</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 rounded-2xl bg-gradient-to-tr from-amber-500/10 via-indigo-500/5 to-indigo-500/10 border border-amber-300/60 shadow-sm relative overflow-hidden">
+                <div class="absolute top-0 right-0 translate-x-3 -translate-y-3 opacity-10 text-6xl pointer-events-none">
+                    <i class="fa-solid fa-trophy"></i>
+                </div>
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-xs font-black text-amber-700 uppercase tracking-widest flex items-center">
+                        <i class="fa-solid fa-award mr-1.5 text-amber-500"></i> 當前賽季成績
+                    </h4>
+                    <span id="panel-season-badge" class="text-[9px] bg-amber-500 text-white font-bold px-2 py-0.5 rounded-full">第 3 季 ‧ 階段 1</span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3 text-center">
+                    <div class="bg-white/90 p-3 rounded-xl border border-amber-100">
+                        <p class="text-[9px] text-slate-400 font-bold">本階段累積積分</p>
+                        <p class="text-lg font-black text-amber-600" id="panel-phase-score">0 PTS</p>
+                    </div>
+                    <div class="bg-white/90 p-3 rounded-xl border border-amber-100">
+                        <p class="text-[9px] text-slate-400 font-bold">本階段估計排名</p>
+                        <p class="text-lg font-black text-indigo-600" id="panel-phase-rank">第 1 名</p>
+                    </div>
+                    <div class="bg-white/90 p-3 rounded-xl border border-amber-100">
+                        <p class="text-[9px] text-slate-400 font-bold">本賽季預測戰績</p>
+                        <p class="text-xs font-black text-slate-700 mt-1">
+                            <span class="text-emerald-500" id="panel-phase-wins">0 W</span> / <span class="text-rose-500" id="panel-phase-losses">0 L</span>
+                        </p>
+                    </div>
+                    <div class="bg-white/90 p-3 rounded-xl border border-amber-100">
+                        <p class="text-[9px] text-slate-400 font-bold">本階段預測勝率</p>
+                        <p class="text-sm font-black text-emerald-600 mt-0.5" id="panel-phase-winrate">0.0%</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center">
+                    <i class="fa-solid fa-chart-pie mr-1.5 text-indigo-500"></i> 歷史戰績統計數據
+                </h4>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
+                        <p class="text-[9px] text-slate-400 font-bold">總測驗次數</p>
+                        <p class="text-lg font-black text-slate-700 mt-0.5" id="panel-games-count">0 次</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
+                        <p class="text-[9px] text-slate-400 font-bold">歷史勝敗總計</p>
+                        <p class="text-xs font-black text-slate-700 mt-1">
+                            <span class="text-emerald-500" id="panel-wins">0 W</span> / <span class="text-rose-500" id="panel-losses">0 L</span>
+                        </p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
+                        <p class="text-[9px] text-slate-400 font-bold">歷史預測總勝率</p>
+                        <p class="text-lg font-black text-emerald-600 mt-0.5" id="panel-winrate">0.0%</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
+                        <p class="text-[9px] text-slate-400 font-bold">答題總參與率</p>
+                        <p class="text-lg font-black text-indigo-600 mt-0.5" id="panel-part-rate">0.0%</p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-150 col-span-2">
+                        <p class="text-[9px] text-slate-400 font-bold mb-2">持倉方向勝場分佈</p>
+                        <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                            <div class="bg-emerald-50/50 p-2 rounded-xl border border-emerald-100">
+                                <span class="text-emerald-700 font-bold block text-[9px]">做多成功</span>
+                                <span id="panel-bull-wins" class="font-black text-slate-700 text-xs">0</span>
+                            </div>
+                            <div class="bg-rose-50/50 p-2 rounded-xl border border-rose-100">
+                                <span class="text-rose-700 font-bold block text-[9px]">做空成功</span>
+                                <span id="panel-bear-wins" class="font-black text-slate-700 text-xs">0</span>
+                            </div>
+                            <div class="bg-slate-100 p-2 rounded-xl border border-slate-200">
+                                <span class="text-slate-600 font-bold block text-[9px]">觀望成功</span>
+                                <span id="panel-neutral-wins" class="font-black text-slate-700 text-xs">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-150 col-span-2">
+                        <p class="text-[9px] text-slate-400 font-bold mb-2">各大商品實戰成功捷報</p>
+                        <div class="grid grid-cols-2 gap-2 text-center text-xs">
+                            <div class="bg-amber-50/50 p-2 rounded-xl border border-amber-100">
+                                <span class="text-amber-700 font-bold block text-[9px]">💰 黃金現貨</span>
+                                <span id="panel-gold-wins" class="font-black text-slate-700 text-xs">0 次</span>
+                            </div>
+                            <div class="bg-orange-50/50 p-2 rounded-xl border border-orange-100">
+                                <span class="text-orange-700 font-bold block text-[9px]">🪙 比特幣</span>
+                                <span id="panel-btc-wins" class="font-black text-slate-700 text-xs">0 次</span>
+                            </div>
+                            <div class="bg-blue-50/50 p-2 rounded-xl border border-blue-100">
+                                <span class="text-blue-700 font-bold block text-[9px]">📈 納斯達克</span>
+                                <span id="panel-nasdaq-wins" class="font-black text-slate-700 text-xs">0 次</span>
+                            </div>
+                            <div class="bg-red-50/50 p-2 rounded-xl border border-red-100">
+                                <span class="text-red-700 font-bold block text-[9px]">📊 台指期</span>
+                                <span id="panel-tw-wins" class="font-black text-slate-700 text-xs">0 次</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
+                        <p class="text-[9px] text-slate-400 font-bold">目前連續勝/敗</p>
+                        <p class="text-xs font-black text-slate-700 mt-1"><span class="text-emerald-500" id="panel-streak">0 🔥</span> / <span class="text-rose-500" id="panel-lossstreak">0 💀</span></p>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
+                        <p class="text-[9px] text-slate-400 font-bold">留言被讚次數</p>
+                        <p class="text-lg font-black text-amber-500 mt-0.5"><span id="panel-likes">0</span> <i class="fa-regular fa-thumbs-up text-xs"></i></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="p-6 border-t bg-slate-50/50">
+            <button onclick="logout()" class="w-full py-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl font-bold text-xs transition flex items-center justify-center">
+                <i class="fa-solid fa-right-from-bracket mr-2"></i>登出帳號
+            </button>
+        </div>
+    </div>
+
+    <div id="achievementsModal" class="hidden fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-4xl h-[85vh] rounded-3xl p-6 shadow-2xl flex flex-col">
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <div>
+                    <h2 class="text-2xl font-black bg-gradient-to-r from-amber-500 to-amber-700 bg-clip-text text-transparent">🏆 交易成就與稱號中心</h2>
+                    <p class="text-slate-400 text-xs mt-1">精簡門檻（10/30/50次解鎖）大師挑戰。證明你是真正的交易戰神！</p>
+                </div>
+                <button onclick="document.getElementById('achievementsModal').classList.add('hidden')" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500"><i class="fa-solid fa-times"></i></button>
+            </div>
+            
+            <div class="flex space-x-2 mb-4">
+                <button onclick="filterAchievements('all')" id="btn-ach-all" class="px-4 py-2 rounded-xl text-xs font-black bg-brand-50 text-brand-600 border border-brand-100">全部成就 (<span id="total-ach-count">31</span>)</button>
+                <button onclick="filterAchievements('claimable')" id="btn-ach-claimable" class="px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">待領取 <span id="claimable-badge" class="ml-1 px-1.5 py-0.5 bg-amber-500 text-white rounded-full text-[9px] hidden">0</span></button>
+                <button onclick="filterAchievements('claimed')" id="btn-ach-claimed" class="px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">已領取</button>
+            </div>
+
+            <div id="ach-list" class="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-2">
+                <!-- Achievements injected dynamically via JS -->
+            </div>
+        </div>
+    </div>
+
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            <div class="lg:col-span-8 space-y-6">
+                <!-- Main K-Line Card -->
+                <div class="glass-panel rounded-3xl p-6 relative overflow-hidden">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                        <div class="flex items-center space-x-3">
+                            <span class="p-2 bg-indigo-50 text-indigo-600 rounded-xl"><i class="fa-solid fa-circle-nodes text-lg"></i></span>
+                            <div>
+                                <span id="challenge-time" class="text-xs text-brand-600 font-bold block">12:00 盤勢挑戰</span>
+                                <span id="challenge-symbol" class="font-black text-slate-800 text-lg">黃金現貨 (XAU/USD)</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2 bg-slate-100 p-1 rounded-xl border border-slate-200/50 self-end sm:self-auto">
+                            <button onclick="switchTimeframe('15m')" id="btn-tf-15m" class="px-4 py-1.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm">15m</button>
+                            <button onclick="switchTimeframe('1H')" id="btn-tf-1H" class="px-4 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-500 hover:text-slate-800">1H (1小時)</button>
+                        </div>
+                    </div>
+
+                    <!-- K Line Canvas with Mask overlay -->
+                    <div class="relative w-full aspect-[16/10] bg-[#fafbfc] rounded-2xl border border-slate-200/60 overflow-hidden shadow-inner">
+                        <canvas id="klineCanvas" class="w-full h-full block"></canvas>
+                        
+                        <div class="absolute top-4 left-4 bg-slate-950/5 text-slate-400 text-[10px] px-2 py-1 rounded font-bold uppercase tracking-wider select-none">
+                            TV Engine Emulation v2.0
+                        </div>
+
+                        <div id="chartMask" class="absolute top-0 right-0 w-1/2 h-full bg-slate-900/10 backdrop-blur-md border-l border-brand-500/30 flex flex-col items-center justify-center transition-all duration-700 ease-out z-10">
+                            <div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: radial-gradient(#000 20%, transparent 20%); background-size: 10px 10px;"></div>
+                            <div class="bg-slate-900/80 text-white p-4 rounded-2xl shadow-xl flex flex-col items-center max-w-xs text-center border border-slate-700/50 animate-pulse">
+                                <i class="fa-solid fa-eye-slash text-2xl text-amber-400 mb-2"></i>
+                                <h3 class="font-bold text-sm">未來走勢已被屏蔽</h3>
+                                <p class="text-[10px] text-slate-300 mt-1">請利用左側揭示之歷史 K 線判斷並投出神聖一票，送出後揭曉實時答案！</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="text-[10px] text-slate-400 mt-2 text-right italic"><i class="fa-solid fa-circle-info mr-1"></i>黃金/納指點差、報價可能與個別交易商(OANDA)有極細微落差</p>
+
+                    <div id="poll-container" class="mt-6">
+                        <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest text-center mb-4">現在這個位置，你會怎麼做？</h4>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <button onclick="handleVote('bull')" class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-bull font-bold flex flex-col items-center justify-center glow-button-bull transition">
+                                <i class="fa-solid fa-circle-arrow-up text-2xl mb-1"></i>
+                                <span class="text-sm">做多 (Bullish)</span>
+                                <span class="text-[10px] font-normal text-emerald-600 mt-1">預期後續大漲勝出</span>
+                            </button>
+                            <button onclick="handleVote('bear')" class="p-4 rounded-2xl bg-rose-50 border border-rose-200 hover:bg-rose-100 text-bear font-bold flex flex-col items-center justify-center glow-button-bear transition">
+                                <i class="fa-solid fa-circle-arrow-down text-2xl mb-1"></i>
+                                <span class="text-sm">做空 (Bearish)</span>
+                                <span class="text-[10px] font-normal text-rose-600 mt-1">預期後續大跌勝出</span>
+                            </button>
+                            <button onclick="handleVote('neutral')" class="p-4 rounded-2xl bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-500 font-bold flex flex-col items-center justify-center hover:translate-y-[-2px] transition shadow-sm">
+                                <i class="fa-solid fa-circle-minus text-2xl mb-1 text-slate-400"></i>
+                                <span class="text-sm">不進場 (Neutral)</span>
+                                <span class="text-[10px] font-normal text-slate-400 mt-1">預期橫盤或離場觀望</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="result-container" class="hidden mt-6 p-5 bg-gradient-to-tr from-slate-50 to-indigo-50/30 rounded-2xl border border-slate-200">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                            <div>
+                                <span class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold uppercase">結算報告</span>
+                                <h4 class="font-black text-lg text-slate-800 mt-1">解密：右半邊真實走勢</h4>
+                            </div>
+                            <button onclick="resetChallenge()" class="text-xs bg-white border border-slate-200 text-indigo-600 hover:bg-indigo-50 font-bold px-4 py-2 rounded-xl flex items-center transition shadow-sm">
+                                <i class="fa-solid fa-rotate-left mr-1.5"></i> 🔄 重新挑戰本期測試
+                            </button>
+                        </div>
+
+                        <div id="outcome-alert" class="p-4 rounded-xl mb-4 font-bold flex items-center text-sm"></div>
+
+                        <div class="space-y-3">
+                            <span class="text-xs font-black text-slate-400">全球交易員投票比例</span>
+                            <div class="space-y-2">
+                                <div>
+                                    <div class="flex justify-between text-xs font-bold mb-1">
+                                        <span class="text-emerald-600">做多 (Bull)</span>
+                                        <span id="ratio-bull-lbl">0%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                                        <div id="ratio-bull-bar" class="bg-emerald-500 h-full transition-all duration-1000" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs font-bold mb-1">
+                                        <span class="text-rose-600">做空 (Bear)</span>
+                                        <span id="ratio-bear-lbl">0%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                                        <div id="ratio-bear-bar" class="bg-rose-500 h-full transition-all duration-1000" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between text-xs font-bold mb-1">
+                                        <span class="text-slate-500">不進場 (Neutral)</span>
+                                        <span id="ratio-neutral-lbl">0%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                                        <div id="ratio-neutral-bar" class="bg-slate-400 h-full transition-all duration-1000" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel rounded-3xl p-6 relative overflow-hidden">
+                    <h3 class="font-black text-base flex items-center mb-4 text-slate-800">
+                        <i class="fa-solid fa-comments mr-2 text-brand-600"></i>決策者討論區 (留言板)
+                    </h3>
+
+                    <!-- Comments Locked Overlay (Blind-test style) -->
+                    <div id="comments-locked-overlay" class="absolute inset-0 bg-white/95 backdrop-blur-md z-20 flex flex-col items-center justify-center text-center p-6">
+                        <div class="w-14 h-14 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center text-indigo-500 mb-3 animate-bounce">
+                            <i class="fa-solid fa-lock text-2xl"></i>
+                        </div>
+                        <h4 class="font-black text-sm text-slate-700">想觀看其他交易員的犀利評論？</h4>
+                        <p class="text-[11px] text-slate-400 mt-1 max-w-sm">請先完成本次「做多 / 做空 / 不進場」的決策投票。投票後即可無縫解鎖、瀏覽並對精準觀點給予讚同！</p>
+                    </div>
+
+                    <div class="space-y-4">
+                        <form onsubmit="postComment(event)" class="bg-slate-50 p-4 rounded-2xl border flex flex-col gap-3">
+                            <textarea id="comment-text-input" rows="3" placeholder="說說你的看盤分析邏輯吧，例如：1H級別出現主力吸籌，EMA形成金叉向上..." required class="w-full p-3 rounded-xl border border-slate-200 text-xs focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"></textarea>
+                            <button type="submit" class="self-end px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition">發布專業解析</button>
+                        </form>
+
+                        <div id="comments-list" class="space-y-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-4 space-y-6">
+                <!-- Period Gates -->
+                <div class="glass-panel rounded-3xl p-6">
+                    <h3 class="font-black text-base flex items-center mb-4"><i class="fa-solid fa-hourglass-half mr-2 text-indigo-600"></i>今日盤面關卡</h3>
+                    <div class="space-y-3">
+                        <button onclick="selectPeriod('12:00')" id="btn-period-12" class="w-full p-4 rounded-2xl border transition-all flex items-center justify-between text-left border-brand-500/80 bg-brand-50/50">
+                            <div class="flex items-center space-x-3">
+                                <span class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold text-xs">12:00</span>
+                                <div>
+                                    <p class="font-black text-xs text-slate-800">黃金現貨 (XAU/USD)</p>
+                                    <p class="text-[10px] text-slate-400">國際貴金屬熱點</p>
+                                </div>
+                            </div>
+                            <span id="badge-period-12" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white">熱烈測驗中</span>
+                        </button>
+                        
+                        <button onclick="selectPeriod('15:00')" id="btn-period-15" class="w-full p-4 rounded-2xl border transition-all flex items-center justify-between text-left border-slate-200 hover:bg-slate-50">
+                            <div class="flex items-center space-x-3">
+                                <span class="w-10 h-10 rounded-xl bg-brand-500/10 text-brand-600 flex items-center justify-center font-bold text-xs">15:00</span>
+                                <div>
+                                    <p class="font-black text-xs text-slate-800">小納斯達克期貨 (NQ=F)</p>
+                                    <p class="text-[10px] text-slate-400">美股科技大盤指標</p>
+                                </div>
+                            </div>
+                            <span id="badge-period-15" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400">待挑戰</span>
+                        </button>
+
+                        <button onclick="selectPeriod('18:00')" id="btn-period-18" class="w-full p-4 rounded-2xl border transition-all flex items-center justify-between text-left border-slate-200 hover:bg-slate-50">
+                            <div class="flex items-center space-x-3">
+                                <span class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center font-bold text-xs">18:00</span>
+                                <div>
+                                    <p class="font-black text-xs text-slate-800">台股加權指數 (TWII)</p>
+                                    <p class="text-[10px] text-slate-400">台指大盤強弱局勢</p>
+                                </div>
+                            </div>
+                            <span id="badge-period-18" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400">待挑戰</span>
+                        </button>
+
+                        <button onclick="selectPeriod('21:00')" id="btn-period-21" class="w-full p-4 rounded-2xl border transition-all flex items-center justify-between text-left border-slate-200 hover:bg-slate-50">
+                            <div class="flex items-center space-x-3">
+                                <span class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center font-bold text-xs">21:00</span>
+                                <div>
+                                    <p class="font-black text-xs text-slate-800">比特幣 (BTC/USDT)</p>
+                                    <p class="text-[10px] text-slate-400">加密市場風向球</p>
+                                </div>
+                            </div>
+                            <span id="badge-period-21" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400">待挑戰</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-panel rounded-3xl p-6">
+                    <div class="flex flex-col mb-4">
+                        <h3 class="font-black text-base flex items-center"><i class="fa-solid fa-ranking-star mr-2 text-amber-500"></i>神預測傳奇排行榜</h3>
+                        <p class="text-[10px] text-slate-400 mt-1">🕒 賽制週期：每兩週結算一次 (第 3 季 ‧ 階段 1 今日結算！)</p>
+                    </div>
+                    
+                    <div class="flex space-x-2 p-1 bg-slate-100 rounded-xl border border-slate-200/50 mb-3 text-xs">
+                        <button onclick="switchLeaderboardMode('phase')" id="btn-lb-phase" class="flex-1 py-1.5 font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm">本階段累積</button>
+                        <button onclick="switchLeaderboardMode('total')" id="btn-lb-total" class="flex-1 py-1.5 font-bold rounded-lg transition-all text-slate-500 hover:text-slate-800">歷史總累積</button>
+                    </div>
+
+                    <div id="leaderboard-container" class="space-y-3">
+                        <!-- Rankings dynamic loading -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="authModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl relative border">
+            <div class="flex border-b mb-6">
+                <button onclick="switchAuthTab('login')" id="tab-login" class="flex-1 pb-3 text-sm font-black border-b-2 border-indigo-600 text-indigo-600">登入帳戶</button>
+                <button onclick="switchAuthTab('register')" id="tab-register" class="flex-1 pb-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600">快速註冊</button>
+            </div>
+
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">登入信箱 (Email)</label>
+                    <input type="text" id="auth-account" required placeholder="請輸入註冊信箱" class="w-full p-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div id="register-fields" class="hidden space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">公開玩家暱稱</label>
+                        <input type="text" id="auth-nickname" placeholder="例如: 幣市奇異博士" class="w-full p-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">密碼 (Password)</label>
+                    <input type="password" id="auth-password" required placeholder="請輸入安全密碼" class="w-full p-3 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div id="auth-error-msg" class="hidden p-3 bg-rose-50 text-rose-600 rounded-xl text-xs font-semibold"></div>
+
+                <button type="submit" class="w-full py-3 bg-gradient-to-r from-brand-600 to-indigo-600 text-white font-bold rounded-xl text-xs shadow-md hover:from-brand-700 hover:to-indigo-700 transition">確定送出</button>
+            </form>
+
+            <button onclick="document.getElementById('authModal').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><i class="fa-solid fa-times"></i></button>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="glass-panel text-xs font-bold px-6 py-3.5 rounded-2xl shadow-xl flex items-center space-x-2 border-l-4 border-indigo-500 bg-white">
+            <span id="toast-icon" class="text-indigo-500"><i class="fa-solid fa-bell"></i></span>
+            <span id="toast-message" class="text-slate-700">系統提示訊息</span>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, onSnapshot, addDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const fallbackConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Determine actual config (Workspace injects __firebase_config, falls back to manual config)
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : fallbackConfig;
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        let db = null;
+        let auth = null;
+        let isFirebaseActive = false;
+
+        const ACHIEVEMENTS_DB = [
+            // 1. Accumulative points (6 achievements)
+            { id: 1, name: "初試啼聲", desc: "歷史總積分累積達 50 分", check: (u) => u.score >= 50, reward: "市場新鮮小韭菜" },
+            { id: 2, name: "波段探索者", desc: "歷史總積分累積達 300 分", check: (u) => u.score >= 300, reward: "K線翻譯官" },
+            { id: 3, name: "趨勢衝浪好手", desc: "歷史總積分累積達 1000 分", check: (u) => u.score >= 1000, reward: "滑板鞋交易員" },
+            { id: 4, name: "機構級分析師", desc: "歷史總積分累積達 2500 分", check: (u) => u.score >= 2500, reward: "投行實習生" },
+            { id: 5, name: "金融海嘯掌門", desc: "歷史總積分累積達 5000 分", check: (u) => u.score >= 5000, reward: "大摩幕後黑手" },
+            { id: 6, name: "交易界傳奇", desc: "歷史總積分累積達 10000 分", check: (u) => u.score >= 10000, reward: "永不爆倉之神" },
+
+            // 2. Win streaks (5 achievements)
+            { id: 11, name: "交易順風耳", desc: "連續獲勝 3 次", check: (u) => u.maxStreak >= 3, reward: "單車變摩托" },
+            { id: 12, name: "波動駕馭大師", desc: "連續獲勝 5 次", check: (u) => u.maxStreak >= 5, reward: "當代少年股神" },
+            { id: 13, name: "東方神秘力量", desc: "連續獲勝 10 次", check: (u) => u.maxStreak >= 10, reward: "K線圖預言家" },
+            { id: 14, name: "時空開掛人生", desc: "連續獲勝 20 次", check: (u) => u.maxStreak >= 20, reward: "未來時空旅人" },
+            { id: 15, name: "神明降世", desc: "連續獲勝 30 次", check: (u) => u.maxStreak >= 30, reward: "因果律終極武器" },
+
+            // 3. Loss streaks (5 achievements)
+            { id: 21, name: "完美滑價體驗", desc: "連續失敗 3 次", check: (u) => u.maxLossStreak >= 3, reward: "市場反向指標" },
+            { id: 22, name: "反向操作導師", desc: "連續失敗 5 次", check: (u) => u.maxLossStreak >= 5, reward: "韭菜保護協會 VIP" },
+            { id: 23, name: "市場燃料供應商", desc: "連續失敗 10 次", check: (u) => u.maxLossStreak >= 10, reward: "溫暖了整個金融市場" },
+            { id: 24, name: "冥王星常駐居民", desc: "連續失敗 20 次", check: (u) => u.maxLossStreak >= 20, reward: "黑洞級超強避雷針" },
+            { id: 25, name: "行走的黑天鵝", desc: "連續失敗 30 次", check: (u) => u.maxLossStreak >= 30, reward: "連上帝都搖頭的男人" },
+
+            // 4. Social interaction likes (4 achievements)
+            { id: 31, name: "略懂皮毛", desc: "留言累計獲得 5 個讚", check: (u) => (u.totalLikesReceived || 0) >= 5, reward: "知名鍵盤分析師" },
+            { id: 32, name: "觀點引人共鳴", desc: "留言累計獲得 15 個讚", check: (u) => (u.totalLikesReceived || 0) >= 15, reward: "財經網紅新星" },
+            { id: 33, name: "社群核心燈塔", desc: "留言累計獲得 30 個讚", check: (u) => (u.totalLikesReceived || 0) >= 30, reward: "群組意見領袖" },
+            { id: 34, name: "首席分析大師", desc: "留言累計獲得 50 個讚", check: (u) => (u.totalLikesReceived || 0) >= 50, reward: "投顧老師接班人" },
+
+            // 5. Hard discipline and participation (4 achievements)
+            { id: 41, name: "每日勤勉打卡", desc: "累計參與測驗 10 次", check: (u) => u.participations >= 10, reward: "爆肝全職交易員" },
+            { id: 42, name: "市場常青樹", desc: "累計參與測驗 30 次", check: (u) => u.participations >= 30, reward: "盯盤紀律鋼鐵人" },
+            { id: 43, name: "鋼鐵交易魂", desc: "累計參與測驗 50 次", check: (u) => u.participations >= 50, reward: "莫得感情的下單機器" },
+            { id: 44, name: "金融界終身奉獻", desc: "累計參與測驗 100 次", check: (u) => u.participations >= 100, reward: "把K線走勢當壁紙的人" },
+
+            // 6. Bull/Bear/Neutral direction challenges (9 achievements - 10/30/50 caps)
+            { id: 51, name: "多頭探路先鋒", desc: "做多預測成功累積達 10 次", check: (u) => (u.bullWins || 0) >= 10, reward: "波段浪潮操盤手" },
+            { id: 52, name: "狂暴巨牛騎士", desc: "做多預測成功累積達 30 次", check: (u) => (u.bullWins || 0) >= 30, reward: "牛市強力推土機" },
+            { id: 53, name: "牛市永恆主宰", desc: "做多預測成功累積達 50 次", check: (u) => (u.bullWins || 0) >= 50, reward: "黃金巨牛尊者" },
+            
+            { id: 56, name: "空頭策略專家", desc: "做空預測成功累積達 10 次", check: (u) => (u.bearWins || 0) >= 10, reward: "高階下行對沖師" },
+            { id: 57, name: "流動性防守者", desc: "做空預測成功累積達 30 次", check: (u) => (u.bearWins || 0) >= 30, reward: "流動性防禦專家" },
+            { id: 58, name: "大空頭戰術大師", desc: "做空預測成功累積達 50 次", check: (u) => (u.bearWins || 0) >= 50, reward: "空頭策略宗師" },
+
+            { id: 61, name: "冷靜市場觀察家", desc: "不進場成功累積達 10 次", check: (u) => (u.neutralWins || 0) >= 10, reward: "空倉大師" },
+            { id: 62, name: "心魔克制者", desc: "不進場成功累積達 30 次", check: (u) => (u.neutralWins || 0) >= 30, reward: "冷眼防守專家" },
+            { id: 63, name: "靜若處子動若脫兔", desc: "不進場成功累積達 50 次", check: (u) => (u.neutralWins || 0) >= 50, reward: "無為而治宗師" },
+
+            // 7. Core asset type success (12 achievements - 10/30/50 caps)
+            { id: 66, name: "路邊撿到金牌", desc: "黃金預測成功累積達 10 次", check: (u) => (u.goldWins || 0) >= 10, reward: "金光閃閃瑞氣千條" },
+            { id: 67, name: "黃金現貨囤貨狂", desc: "黃金預測成功累積達 30 次", check: (u) => (u.goldWins || 0) >= 30, reward: "聯準會黃金儲備特使" },
+            { id: 68, name: "含金量爆表", desc: "黃金預測成功累積達 50 次", check: (u) => (u.goldWins || 0) >= 50, reward: "純金打造的肝" },
+
+            { id: 71, name: "鏈上小散戶", desc: "比特幣預測成功累積達 10 次", check: (u) => (u.btcWins || 0) >= 10, reward: "槓桿拉滿棺材板板" },
+            { id: 72, name: "鑽石手神話", desc: "比特幣預測成功累積達 30 次", check: (u) => (u.btcWins || 0) >= 30, reward: "Web3 降世神通" },
+            { id: 73, name: "賽博龐克造物主", desc: "比特幣預測成功累積達 50 次", check: (u) => (u.btcWins || 0) >= 50, reward: "買下薩爾瓦多的男人" },
+
+            { id: 76, name: "矽谷接刀小韭菜", desc: "納斯達克預測成功累積達 10 次", check: (u) => (u.nasdaqWins || 0) >= 10, reward: "科技泡沫吹笛手" },
+            { id: 77, name: "把 NVDA 當定存", desc: "納斯達克預測成功累積達 30 次", check: (u) => (u.nasdaqWins || 0) >= 30, reward: "科技股狂熱浪潮兒" },
+            { id: 78, name: "我比美聯儲更懂降息", desc: "納斯達克預測成功累積達 50 次", check: (u) => (u.nasdaqWins || 0) >= 50, reward: "納指星系主宰" },
+
+            { id: 81, name: "菜鳥小台指", desc: "台指期預測成功累積達 10 次", check: (u) => (u.twWins || 0) >= 10, reward: "外資提款機解密者" },
+            { id: 82, name: "萬八衝浪大師", desc: "台指期預測成功累積達 30 次", check: (u) => (u.twWins || 0) >= 30, reward: "三大法人看到都要敬禮" },
+            { id: 83, name: "控盤神之手", desc: "台指期預測成功累積達 50 次", check: (u) => (u.twWins || 0) >= 50, reward: "護國神山真正的主人" },
+
+            // 8. Hybrid legendary milestones (5 achievements)
+            { id: 90, name: "全天候對沖經理", desc: "所有商品預測成功皆達 10 次", check: (u) => (u.goldWins||0)>=10 && (u.btcWins||0)>=10 && (u.nasdaqWins||0)>=10 && (u.twWins||0)>=10, reward: "全天候宏觀對沖經理" },
+            { id: 91, name: "多空雙向收割機", desc: "做多與做空成功皆達 20 次", check: (u) => (u.bullWins||0)>=20 && (u.bearWins||0)>=20, reward: "雙向收割電風扇" },
+            { id: 92, name: "穩健防禦大師", desc: "不進場成功 20 次且總積分高於 500", check: (u) => (u.neutralWins||0)>=20 && u.score >= 500, reward: "穩健如磐石" },
+            { id: 93, name: "社群頂尖領袖", desc: "單次連勝 7 次且獲得 20 個讚", check: (u) => u.maxStreak >= 7 && (u.totalLikesReceived||0) >= 20, reward: "社群明星分析師" },
+            { id: 94, name: "終極看盤巨獸", desc: "歷史參與 100 次且至少解鎖 5 個稱號", check: (u) => u.participations >= 100 && (u.claimedAchievements||[]).length >= 5, reward: "看盤機器人 V8" }
+        ];
+
+        let state = {
+            currentUser: null,
+            currentPeriod: '12:00',
+            currentTimeframe: '15m',
+            activeAuthTab: 'login',
+            activeAchievementFilter: 'all',
+            leaderboardMode: 'phase', // 'phase' or 'total'
+            mockComments: {
+                '12:00': [
+                    { id: 'm101', user: "布林帶小霸王", content: "15分鐘級別黃金回踩了120天均線，這裡剛好是前高支撐位，不囉唆直接看多！", likes: 23, likedBy: [] },
+                    { id: 'm102', user: "高階下行對沖師", content: "黃金在 1H 的 RSI 已經破 80，這是極度超買信號，我預計會有一次洗盤，大膽做空！", likes: 14, likedBy: [] },
+                    { id: 'm103', user: "保守觀望佛系派", content: "今晚有美聯儲利率決議，市場大概率先橫盤，還是不進場看戲最安全。", likes: 8, likedBy: [] }
+                ],
+                '15:00': [
+                    { id: 'm201', user: "納指推土機", content: "美股牛市不言頂，回踩就是買點，15分鐘小幅拉回，我直接滿倉做多！", likes: 19, likedBy: [] },
+                    { id: 'm202', user: "理性交易派", content: "高位震盪，量能已經出現背離，小心假突破，我持幣觀望。", likes: 12, likedBy: [] }
+                ],
+                '18:00': [
+                    { id: 'm301', user: "台積電死忠粉", content: "台股今天外資大買，日K形成紅三兵，跟著外資做多就對了！", likes: 31, likedBy: [] },
+                    { id: 'm302', user: "避險大師", content: "美股昨晚大跌，台指期開盤一定承壓，開高就是放空好機會。", likes: 15, likedBy: [] }
+                ],
+                '21:00': [
+                    { id: 'm401', user: "比特幣信徒", content: "BTC 在 1H 出現了完美的上升三角收斂突破！這是牛市起飛的訊號，趕快做多！", likes: 45, likedBy: [] },
+                    { id: 'm402', user: "爆倉生存者", content: "這裡上下插針太嚴重，槓桿開大一下就沒了，不進場才是贏家。", likes: 27, likedBy: [] }
+                ]
+            },
+            votedState: {} // e.g. { "12:00": { "15m": "bull", "1H": "bear" } }
+        };
+
+        const LOCAL_LEADERBOARD_DB = [
+            { name: "量子交易海皇", score: 8450, phaseScore: 1250, title: "對沖基金領袖", streak: 12 },
+            { name: "巴菲特傳人", score: 6200, phaseScore: 900, title: "首席策略官", streak: 8 },
+            { name: "空頭策略宗師", score: 4850, phaseScore: 650, title: "空頭策略宗師", streak: 0 },
+            { name: "瘋狂槓桿俠", score: 3100, phaseScore: 500, title: "初階分析師", streak: 5 },
+            { name: "理智多頭", score: 2200, phaseScore: 350, title: "實盤入門者", streak: 3 }
+        ];
+
+        window.onload = function() {
+            initFirebaseEngine();
+            checkPhaseRollover();
+            renderPeriods();
+            loadChallengeData();
+        };
+
+        async function initFirebaseEngine() {
+            const statusBanner = document.getElementById('firebase-status-banner');
+            const statusText = document.getElementById('firebase-status-text');
+
+            if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+                try {
+                    const app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    isFirebaseActive = true;
+                    
+                    statusBanner.className = "bg-emerald-600 text-white text-[11px] font-bold text-center py-1.5 px-4 flex justify-center items-center space-x-2";
+                    statusText.innerText = `🟢 雲端同步連線中 - 已連接 Firebase 實體 (${appId})`;
+
+                    onAuthStateChanged(auth, async (user) => {
+                        if (user) {
+                            await syncUserRecord(user);
+                            await loadSession();
+                            loadChallengeData();
+                            renderLeaderboard();
+                        } else {
+                            try {
+                                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                                    await signInWithCustomToken(auth, __initial_auth_token);
+                                } else {
+                                    await signInAnonymously(auth);
+                                }
+                            } catch (e) {
+                                console.error("Anonymous authentication fallback failed", e);
+                            }
+                        }
+                    });
+
+                    // Set up snapshot streams
+                    const usersCol = collection(db, 'artifacts', appId, 'public', 'data', 'users');
+                    const commentsCol = collection(db, 'artifacts', appId, 'public', 'data', 'comments');
+
+                    onSnapshot(usersCol, () => { renderLeaderboard(); }, (err) => console.error(err));
+                    onSnapshot(commentsCol, () => { renderComments(); }, (err) => console.error(err));
+
+                } catch (error) {
+                    console.error("Firebase setup failed:", error);
+                    fallbackToLocalStorage(statusBanner, statusText);
+                }
+            } else {
+                fallbackToLocalStorage(statusBanner, statusText);
+            }
+        }
+
+        function fallbackToLocalStorage(banner, text) {
+            isFirebaseActive = false;
+            banner.className = "bg-amber-600 text-white text-[11px] font-bold text-center py-1.5 px-4 flex justify-center items-center space-x-2";
+            text.innerText = "⚠️ 本地演示模式 (請於 index.html 頂端貼上 Firebase 金鑰以啟用雲端同步！)";
+            if (!localStorage.getItem('tq_users_db')) {
+                localStorage.setItem('tq_users_db', JSON.stringify({}));
+            }
+            loadSession();
+            renderLeaderboard();
+        }
+
+        async function syncUserRecord(user) {
+            const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
+            const docSnap = await getDoc(userDocRef);
+            if (!docSnap.exists()) {
+                const defaultData = {
+                    account: user.email || 'anonymous',
+                    nickname: user.displayName || (user.isAnonymous ? '匿名交易員' : (user.email && user.email.includes('@') ? user.email.split('@')[0] : '交易員_' + user.uid.substring(0, 5))),
+                    email: user.email || 'anonymous',
+                    score: 0,
+                    phaseScore: 0,
+                    wins: 0,
+                    losses: 0,
+                    phaseWins: 0,
+                    phaseLosses: 0,
+                    currentPhase: getCurrentPhaseString(),
+                    bullWins: 0,
+                    bearWins: 0,
+                    neutralWins: 0,
+                    goldWins: 0,
+                    btcWins: 0,
+                    nasdaqWins: 0,
+                    twWins: 0,
+                    participations: 0,
+                    streak: 0,
+                    maxStreak: 0,
+                    lossStreak: 0,
+                    maxLossStreak: 0,
+                    totalLikesReceived: 0,
+                    claimedAchievements: [],
+                    registeredAt: Date.now()
+                };
+                await setDoc(userDocRef, defaultData);
+            }
+        }
+
+        function getCurrentPhaseString() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            const date = now.getDate();
+            const quarter = Math.ceil(month / 3);
+            const phase = date <= 15 ? 1 : 2;
+            return `第 ${quarter} 季 ‧ 階段 ${phase}`;
+        }
+
+        async function checkPhaseRollover() {
+            const currentPhaseStr = getCurrentPhaseString();
+            document.getElementById('current-global-phase-badge').innerText = currentPhaseStr + " (今日結算！)";
+            document.getElementById('panel-season-badge').innerText = currentPhaseStr;
+
+            if (isFirebaseActive && auth?.currentUser) {
+                const uid = auth.currentUser.uid;
+                const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', uid);
+                const userDoc = await getDoc(userDocRef);
+                if (userDoc.exists()) {
+                    const u = userDoc.data();
+                    if (u.currentPhase !== currentPhaseStr) {
+                        await updateDoc(userDocRef, {
+                            phaseScore: 0,
+                            phaseWins: 0,
+                            phaseLosses: 0,
+                            currentPhase: currentPhaseStr
+                        });
+                        showToast(`🕒 新階段已開啟！您的「本階段累積積分」已歸零重計。`, "info");
+                    }
+                }
+            } else if (!isFirebaseActive) {
+                const session = localStorage.getItem('tq_logged_session');
+                if (session) {
+                    const dbLocal = JSON.parse(localStorage.getItem('tq_users_db')) || {};
+                    const user = dbLocal[session];
+                    if (user && user.currentPhase !== currentPhaseStr) {
+                        user.phaseScore = 0;
+                        user.phaseWins = 0;
+                        user.phaseLosses = 0;
+                        user.currentPhase = currentPhaseStr;
+                        localStorage.setItem('tq_users_db', JSON.stringify(dbLocal));
+                        showToast(`🕒 新階段已開啟！您的「本階段累積積分」已歸零重計。`, "info");
+                    }
+                }
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+            
+            toastMsg.innerText = message;
+            if (type === 'success') {
+                toastIcon.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-500 text-sm"></i>`;
+            } else if (type === 'error') {
+                toastIcon.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-rose-500 text-sm"></i>`;
+            } else {
+                toastIcon.innerHTML = `<i class="fa-solid fa-bell text-indigo-500 text-sm"></i>`;
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        async function loadSession() {
+            if (isFirebaseActive && auth?.currentUser) {
+                const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', auth.currentUser.uid);
+                const docSnap = await getDoc(userDocRef);
+                if (docSnap.exists()) {
+                    state.currentUser = docSnap.data();
+                    document.getElementById('guest-buttons').classList.add('hidden');
+                    document.getElementById('user-profile-widget').classList.remove('hidden');
+                    document.getElementById('user-display-nickname').innerText = state.currentUser.nickname;
+                    document.getElementById('user-display-score').innerText = `🔥 ${state.currentUser.score} PTS`;
+                    document.getElementById('user-avatar-initial').innerText = state.currentUser.nickname.charAt(0).toUpperCase();
+                    updateProfileDashboard();
+                }
+            } else {
+                const session = localStorage.getItem('tq_logged_session');
+                if (session) {
+                    const dbLocal = JSON.parse(localStorage.getItem('tq_users_db')) || {};
+                    state.currentUser = dbLocal[session];
+                    if (state.currentUser) {
+                        document.getElementById('guest-buttons').classList.add('hidden');
+                        document.getElementById('user-profile-widget').classList.remove('hidden');
+                        document.getElementById('user-display-nickname').innerText = state.currentUser.nickname;
+                        document.getElementById('user-display-score').innerText = `🔥 ${state.currentUser.score} PTS`;
+                        document.getElementById('user-avatar-initial').innerText = state.currentUser.nickname.charAt(0).toUpperCase();
+                        updateProfileDashboard();
+                    }
+                } else {
+                    document.getElementById('guest-buttons').classList.remove('hidden');
+                    document.getElementById('user-profile-widget').classList.add('hidden');
+                }
+            }
+        }
+
+        async function updateProfileDashboard() {
+            if (!state.currentUser) return;
+            const user = state.currentUser;
+
+            const daysSinceReg = Math.max(1, Math.ceil((Date.now() - (user.registeredAt || Date.now())) / (1000 * 60 * 60 * 24)));
+            const partRate = (((user.participations || 0) / (daysSinceReg * 4)) * 100).toFixed(1);
+            
+            const totalGames = (user.wins || 0) + (user.losses || 0);
+            const winRate = totalGames > 0 ? (((user.wins || 0) / totalGames) * 100).toFixed(1) : "0.0";
+
+            const phaseGames = (user.phaseWins || 0) + (user.phaseLosses || 0);
+            const phaseWinRate = phaseGames > 0 ? (((user.phaseWins || 0) / phaseGames) * 100).toFixed(1) : "0.0";
+
+            let currentTitle = "韭菜新手";
+            ACHIEVEMENTS_DB.forEach(ach => {
+                if (ach.reward && ach.check(user)) currentTitle = ach.reward;
+            });
+
+            document.getElementById('panel-avatar').innerText = user.nickname.charAt(0).toUpperCase();
+            document.getElementById('panel-nickname').innerText = user.nickname;
+            document.getElementById('panel-email').innerText = user.email;
+            document.getElementById('panel-score').innerText = `${user.score} PTS`;
+            document.getElementById('panel-title').innerText = currentTitle;
+
+            document.getElementById('panel-phase-score').innerText = `${user.phaseScore || 0} PTS`;
+            document.getElementById('panel-phase-wins').innerText = `${user.phaseWins || 0} W`;
+            document.getElementById('panel-phase-losses').innerText = `${user.phaseLosses || 0} L`;
+            document.getElementById('panel-phase-winrate').innerText = `${phaseWinRate}%`;
+
+            getEstimatedRank(isFirebaseActive ? auth.currentUser.uid : user.account, 'phase', (rankPosition) => {
+                document.getElementById('panel-phase-rank').innerText = `第 ${rankPosition} 名`;
+            });
+
+            document.getElementById('panel-games-count').innerText = `${user.participations || 0} 次`;
+            document.getElementById('panel-wins').innerText = `${user.wins || 0} W`;
+            document.getElementById('panel-losses').innerText = `${user.losses || 0} L`;
+            document.getElementById('panel-winrate').innerText = `${winRate}%`;
+            document.getElementById('panel-part-rate').innerText = `${partRate > 100 ? 100 : partRate}%`;
+
+            document.getElementById('panel-bull-wins').innerText = user.bullWins || 0;
+            document.getElementById('panel-bear-wins').innerText = user.bearWins || 0;
+            document.getElementById('panel-neutral-wins').innerText = user.neutralWins || 0;
+
+            document.getElementById('panel-gold-wins').innerText = `${user.goldWins || 0} 次`;
+            document.getElementById('panel-btc-wins').innerText = `${user.btcWins || 0} 次`;
+            document.getElementById('panel-nasdaq-wins').innerText = `${user.nasdaqWins || 0} 次`;
+            document.getElementById('panel-tw-wins').innerText = `${user.twWins || 0} 次`;
+
+            document.getElementById('panel-streak').innerText = `${user.streak || 0} 🔥`;
+            document.getElementById('panel-lossstreak').innerText = `${user.lossStreak || 0} 💀`;
+            document.getElementById('panel-likes').innerText = user.totalLikesReceived || 0;
+        }
+
+        async function getEstimatedRank(identifier, mode = 'phase', callback) {
+            let players = [];
+            if (isFirebaseActive) {
+                const usersCol = collection(db, 'artifacts', appId, 'public', 'data', 'users');
+                const snapshot = await getDocs(usersCol);
+                snapshot.forEach(docSnap => {
+                    const d = docSnap.data();
+                    players.push({
+                        id: docSnap.id,
+                        score: d.score || 0,
+                        phaseScore: d.phaseScore || 0
+                    });
+                });
+            } else {
+                const dbLocal = JSON.parse(localStorage.getItem('tq_users_db')) || {};
+                Object.keys(dbLocal).forEach(key => {
+                    const u = dbLocal[key];
+                    players.push({ id: u.account, score: u.score || 0, phaseScore: u.phaseScore || 0 });
+                });
+            }
+
+            if (mode === 'phase') {
+                players.sort((a, b) => b.phaseScore - a.phaseScore);
+            } else {
+                players.sort((a, b) => b.score - a.score);
+            }
+            const idx = players.findIndex(p => p.id === identifier);
+            callback(idx !== -1 ? idx + 1 : 1);
+        }
+
+        function getSeed(period, timeframe) {
+            let val = 0;
+            const str = period + timeframe;
+            for (let i = 0; i < str.length; i++) {
+                val += str.charCodeAt(i);
+            }
+            return val;
+        }
+
+        function pseudoRandom(seed) {
+            const x = Math.sin(seed++) * 10000;
+            return x - Math.floor(x);
+        }
+
+        function generateCandles(period, timeframe) {
+            let seed = getSeed(period, timeframe);
+            const totalCandles = 40;
+            let startPrice = 100;
+            let volatility = 0.015;
+
+            if (period === '12:00') { 
+                startPrice = 3950 + (pseudoRandom(seed++) * 350); 
+                volatility = 0.003; 
+            } 
+            else if (period === '15:00') { 
+                startPrice = 25000 + (pseudoRandom(seed++) * 2000); 
+                volatility = 0.004; 
+            } 
+            else if (period === '18:00') { 
+                startPrice = 43500 + (pseudoRandom(seed++) * 4500); 
+                volatility = 0.005; 
+            } 
+            else if (period === '21:00') { 
+                startPrice = 59000 + (pseudoRandom(seed++) * 26000); 
+                volatility = 0.008; 
+            }
+
+            let candles = [];
+            let currentPrice = startPrice;
+
+            for (let i = 0; i < totalCandles; i++) {
+                let change = currentPrice * volatility * (pseudoRandom(seed++) - 0.495);
+                let open = currentPrice;
+                let close = currentPrice + change;
+                
+                if (open < 1) open = 1;
+                if (close < 1) close = 1;
+
+                let high = Math.max(open, close) + (Math.max(open, close) * volatility * pseudoRandom(seed++) * 0.5);
+                let low = Math.min(open, close) - (Math.min(open, close) * volatility * pseudoRandom(seed++) * 0.5);
+                let volume = Math.floor(pseudoRandom(seed++) * 10000) + 1000;
+
+                candles.push({ open, close, high, low, volume });
+                currentPrice = close;
+            }
+            return candles;
+        }
+
+        function drawChart(candles, voted) {
+            const canvas = document.getElementById('klineCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+
+            const width = rect.width;
+            const height = rect.height;
+
+            ctx.fillStyle = '#fafbfc';
+            ctx.fillRect(0, 0, width, height);
+
+            if (candles.length === 0) return;
+
+            const chartHeight = height * 0.75;
+            const volHeight = height * 0.15;
+            const topMargin = 20;
+            const bottomMargin = 25;
+            const rightMargin = 60; 
+            
+            const visibleWidth = width - rightMargin;
+            const candleCount = candles.length;
+            const candleWidth = visibleWidth / candleCount;
+
+            let maxPrice = -Infinity;
+            let minPrice = Infinity;
+            let maxVolume = -Infinity;
+
+            const evaluateCount = voted ? candleCount : Math.floor(candleCount / 2);
+
+            for (let i = 0; i < candleCount; i++) {
+                if (i < evaluateCount) {
+                    if (candles[i].high > maxPrice) maxPrice = candles[i].high;
+                    if (candles[i].low < minPrice) minPrice = candles[i].low;
+                }
+                if (candles[i].volume > maxVolume) maxVolume = candles[i].volume;
+            }
+
+            const priceRange = maxPrice - minPrice;
+            maxPrice += priceRange * 0.1;
+            minPrice -= priceRange * 0.1;
+
+            const getX = (index) => index * candleWidth + (candleWidth / 2);
+            const getY = (price) => topMargin + (1 - (price - minPrice) / (maxPrice - minPrice)) * (chartHeight - topMargin);
+            const getVolY = (vol) => height - bottomMargin - (vol / maxVolume) * volHeight;
+
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.04)';
+            ctx.lineWidth = 1;
+            const gridCount = 5;
+            for (let i = 0; i <= gridCount; i++) {
+                const y = topMargin + (i / gridCount) * (chartHeight - topMargin);
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(visibleWidth, y);
+                ctx.stroke();
+
+                const priceVal = maxPrice - (i / gridCount) * (maxPrice - minPrice);
+                ctx.fillStyle = '#64748b';
+                ctx.font = '9px "Plus Jakarta Sans"';
+                ctx.fillText(priceVal.toFixed(2), visibleWidth + 5, y + 3);
+            }
+
+            for (let i = 0; i < candleCount; i += 5) {
+                const x = getX(i);
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height - bottomMargin);
+                ctx.stroke();
+            }
+
+            for (let i = 0; i < candleCount; i++) {
+                if (!voted && i >= 20) continue;
+
+                const candle = candles[i];
+                const isBull = candle.close >= candle.open;
+                const x = getX(i);
+                const openY = getY(candle.open);
+                const closeY = getY(candle.close);
+                const highY = getY(candle.high);
+                const lowY = getY(candle.low);
+
+                const color = isBull ? '#10b981' : '#f43f5e';
+                ctx.strokeStyle = color;
+                ctx.fillStyle = color;
+                ctx.lineWidth = 1.5;
+
+                ctx.beginPath();
+                ctx.moveTo(x, highY);
+                ctx.lineTo(x, lowY);
+                ctx.stroke();
+
+                const bodyHeight = Math.max(1, Math.abs(openY - closeY));
+                const bodyY = Math.min(openY, closeY);
+                ctx.fillRect(x - (candleWidth * 0.3), bodyY, candleWidth * 0.6, bodyHeight);
+
+                const volY = getVolY(candle.volume);
+                ctx.fillStyle = isBull ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)';
+                ctx.fillRect(x - (candleWidth * 0.35), volY, candleWidth * 0.7, height - bottomMargin - volY);
+            }
+
+            ctx.strokeStyle = '#6366f1';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(getX(20), 0);
+            ctx.lineTo(getX(20), height - bottomMargin);
+            ctx.stroke();
+            ctx.setLineDash([]); 
+
+            ctx.fillStyle = '#6366f1';
+            ctx.font = 'bold 9px "Plus Jakarta Sans"';
+            ctx.fillText("現在決策點", getX(20) - 25, height - 12);
+        }
+
+        async function handleVote(choice) {
+            if (!state.currentUser) {
+                openAuthModal('login');
+                showToast("請先註冊或登入帳號，才能參與決策並同步全球排行榜！", "error");
+                return;
+            }
+
+            const period = state.currentPeriod;
+            const timeframe = state.currentTimeframe;
+
+            if (!state.votedState[period]) {
+                state.votedState[period] = {};
+            }
+
+            if (state.votedState[period][timeframe]) {
+                showToast("您本期這個級別已經投過票囉！", "info");
+                return;
+            }
+
+            state.votedState[period][timeframe] = choice;
+
+            const candles = generateCandles(period, timeframe);
+            const decisionClose = candles[19].close;
+            const finalClose = candles[39].close;
+            const percentageChange = ((finalClose - decisionClose) / decisionClose) * 100;
+
+            let realOutcome = 'neutral'; 
+            if (percentageChange > 0.15) {
+                realOutcome = 'bull';
+            } else if (percentageChange < -0.15) {
+                realOutcome = 'bear';
+            }
+
+            const isCorrect = (choice === realOutcome);
+
+            if (isFirebaseActive && auth?.currentUser) {
+                const uid = auth.currentUser.uid;
+                const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', uid);
+                const docSnap = await getDoc(userDocRef);
+                
+                if (docSnap.exists()) {
+                    const u = docSnap.data();
+                    const updateData = {};
+                    updateData.participations = (u.participations || 0) + 1;
+
+                    if (isCorrect) {
+                        updateData.wins = (u.wins || 0) + 1;
+                        updateData.phaseWins = (u.phaseWins || 0) + 1;
+                        updateData.score = (u.score || 0) + 50;
+                        updateData.phaseScore = (u.phaseScore || 0) + 50;
+
+                        if (choice === 'bull') updateData.bullWins = (u.bullWins || 0) + 1;
+                        else if (choice === 'bear') updateData.bearWins = (u.bearWins || 0) + 1;
+                        else if (choice === 'neutral') updateData.neutralWins = (u.neutralWins || 0) + 1;
+
+                        if (period === '12:00') updateData.goldWins = (u.goldWins || 0) + 1;
+                        else if (period === '15:00') updateData.nasdaqWins = (u.nasdaqWins || 0) + 1;
+                        else if (period === '18:00') updateData.twWins = (u.twWins || 0) + 1;
+                        else if (period === '21:00') updateData.btcWins = (u.btcWins || 0) + 1;
+
+                        updateData.streak = (u.streak || 0) + 1;
+                        updateData.maxStreak = Math.max(u.maxStreak || 0, updateData.streak);
+                        updateData.lossStreak = 0;
+                    } else {
+                        updateData.losses = (u.losses || 0) + 1;
+                        updateData.phaseLosses = (u.phaseLosses || 0) + 1;
+                        updateData.lossStreak = (u.lossStreak || 0) + 1;
+                        updateData.maxLossStreak = Math.max(u.maxLossStreak || 0, updateData.lossStreak);
+                        updateData.streak = 0;
+                    }
+
+                    await updateDoc(userDocRef, updateData);
+                    checkAchievements();
+                    await loadSession();
+                    loadChallengeData();
+                    showToast(isCorrect ? `🚀 預測完全正確！積分 +50 分！` : `📉 預測失敗，再接再厲！`, isCorrect ? "success" : "error");
+                }
+            } else {
+                const dbLocal = JSON.parse(localStorage.getItem('tq_users_db'));
+                const user = dbLocal[state.currentUser.account];
+                user.participations = (user.participations || 0) + 1;
+
+                if (isCorrect) {
+                    user.wins = (user.wins || 0) + 1;
+                    user.phaseWins = (user.phaseWins || 0) + 1;
+                    user.score = (user.score || 0) + 50; 
+                    user.phaseScore = (user.phaseScore || 0) + 50; 
+                    
+                    if (choice === 'bull') user.bullWins = (user.bullWins || 0) + 1;
+                    else if (choice === 'bear') user.bearWins = (user.bearWins || 0) + 1;
+                    else if (choice === 'neutral') user.neutralWins = (user.neutralWins || 0) + 1;
+
+                    if (period === '12:00') user.goldWins = (user.goldWins || 0) + 1;
+                    else if (period === '15:00') user.nasdaqWins = (user.nasdaqWins || 0) + 1;
+                    else if (period === '18:00') user.twWins = (user.twWins || 0) + 1;
+                    else if (period === '21:00') user.btcWins = (user.btcWins || 0) + 1;
+
+                    user.streak = (user.streak || 0) + 1;
+                    user.maxStreak = Math.max(user.maxStreak || 0, user.streak);
+                    user.lossStreak = 0; 
+                } else {
+                    user.losses = (user.losses || 0) + 1;
+                    user.phaseLosses = (user.phaseLosses || 0) + 1;
+                    user.lossStreak = (user.lossStreak || 0) + 1;
+                    user.maxLossStreak = Math.max(user.maxLossStreak || 0, user.lossStreak);
+                    user.streak = 0; 
+                }
+
+                localStorage.setItem('tq_users_db', JSON.stringify(dbLocal));
+                await loadSession();
+                checkAchievements();
+                loadChallengeData();
+                renderLeaderboard();
+                showToast(isCorrect ? `🚀 預測完全正確！積分 +50 分！` : `📉 預測失敗，再接再厲！`, isCorrect ? "success" : "error");
+            }
+        }
+
+        function checkAchievements() {
+            if (!state.currentUser) return;
+            const user = state.currentUser;
+            let newlyClaimableCount = 0;
+
+            ACHIEVEMENTS_DB.forEach(ach => {
+                if (!user.claimedAchievements.includes(ach.id)) {
+                    if (ach.check(user)) newlyClaimableCount++;
+                }
+            });
+
+            if (newlyClaimableCount > 0) {
+                showToast(`🏆 恭喜！您有 ${newlyClaimableCount} 個新成就已經達成！請至「成就中心」領取！`, "success");
+            }
+        }
+
+        function loadChallengeData() {
+            const period = state.currentPeriod;
+            const timeframe = state.currentTimeframe;
+            const candles = generateCandles(period, timeframe);
+            const hasVoted = state.votedState[period] && state.votedState[period][timeframe];
+
+            drawChart(candles, hasVoted);
+
+            const mask = document.getElementById('chartMask');
+            const pollBox = document.getElementById('poll-container');
+            const resBox = document.getElementById('result-container');
+            const commentsOverlay = document.getElementById('comments-locked-overlay');
+
+            if (hasVoted) {
+                mask.style.width = '0%';
+                mask.classList.add('hidden');
+                pollBox.classList.add('hidden');
+                resBox.classList.remove('hidden');
+                commentsOverlay.classList.add('hidden'); 
+
+                const decisionClose = candles[19].close;
+                const finalClose = candles[39].close;
+                const percentageChange = ((finalClose - decisionClose) / decisionClose) * 100;
+                
+                let realOutcome = 'neutral';
+                if (percentageChange > 0.15) realOutcome = 'bull';
+                else if (percentageChange < -0.15) realOutcome = 'bear';
+
+                const outcomeAlert = document.getElementById('outcome-alert');
+                const userChoice = state.votedState[period][timeframe];
+
+                let outcomeText = "";
+                if (realOutcome === 'bull') {
+                    outcomeText = `📈 盤勢隨後向上拉升！大漲 +${percentageChange.toFixed(2)}% (做多獲勝)`;
+                    outcomeAlert.className = "p-4 rounded-xl mb-4 font-bold flex items-center text-sm bg-emerald-50 text-emerald-700 border border-emerald-150";
+                } else if (realOutcome === 'bear') {
+                    outcomeText = `📉 盤勢隨後重挫走弱！大跌 ${percentageChange.toFixed(2)}% (做空獲勝)`;
+                    outcomeAlert.className = "p-4 rounded-xl mb-4 font-bold flex items-center text-sm bg-rose-50 text-rose-700 border border-rose-150";
+                } else {
+                    outcomeText = `⚖️ 盤勢呈現橫盤震盪！變動幅度極小 ${percentageChange.toFixed(2)}% (不進場獲勝)`;
+                    outcomeAlert.className = "p-4 rounded-xl mb-4 font-bold flex items-center text-sm bg-slate-100 text-slate-700 border border-slate-200";
+                }
+
+                const correctIcon = (userChoice === realOutcome) ? '<i class="fa-solid fa-circle-check mr-2 text-xl"></i>' : '<i class="fa-solid fa-circle-xmark mr-2 text-xl"></i>';
+                outcomeAlert.innerHTML = `${correctIcon} <div>您的決策是：<span class="underline">${userChoice === 'bull' ? '做多' : userChoice === 'bear' ? '做空' : '不進場'}</span>。<br>${outcomeText}</div>`;
+
+                let seed = getSeed(period, timeframe);
+                const bVal = Math.floor(pseudoRandom(seed++) * 50) + 20;
+                const sVal = Math.floor(pseudoRandom(seed++) * (100 - bVal - 10)) + 5;
+                const nVal = 100 - bVal - sVal;
+
+                document.getElementById('ratio-bull-lbl').innerText = bVal + "%";
+                document.getElementById('ratio-bull-bar').style.width = bVal + "%";
+                document.getElementById('ratio-bear-lbl').innerText = sVal + "%";
+                document.getElementById('ratio-bear-bar').style.width = sVal + "%";
+                document.getElementById('ratio-neutral-lbl').innerText = nVal + "%";
+                document.getElementById('ratio-neutral-bar').style.width = nVal + "%";
+
+            } else {
+                mask.style.width = '50%';
+                mask.classList.remove('hidden');
+                pollBox.classList.remove('hidden');
+                resBox.classList.add('hidden');
+                commentsOverlay.classList.remove('hidden'); 
+            }
+
+            renderComments();
+        }
+
+        function resetChallenge() {
+            const period = state.currentPeriod;
+            const timeframe = state.currentTimeframe;
+            if (state.votedState[period]) delete state.votedState[period][timeframe];
+            loadChallengeData();
+            showToast("此級別測試已被清空，您可以重新選擇以測試！", "info");
+        }
+
+        function selectPeriod(period) {
+            state.currentPeriod = period;
+            const sym = document.getElementById('challenge-symbol');
+            const timeLbl = document.getElementById('challenge-time');
+            
+            timeLbl.innerText = `${period} 盤勢挑戰`;
+            if (period === '12:00') sym.innerText = "黃金現貨 (XAU/USD)";
+            else if (period === '15:00') sym.innerText = "小納斯達克期貨 (NQ=F)";
+            else if (period === '18:00') sym.innerText = "台股加權指數 (TWII)";
+            else if (period === '21:00') sym.innerText = "比特幣 (BTC/USDT)";
+
+            renderPeriods();
+            loadChallengeData();
+        }
+
+        function switchTimeframe(tf) {
+            state.currentTimeframe = tf;
+            const btn15 = document.getElementById('btn-tf-15m');
+            const btn1H = document.getElementById('btn-tf-1H');
+
+            if (tf === '15m') {
+                btn15.className = "px-4 py-1.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm";
+                btn1H.className = "px-4 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-500 hover:text-slate-800";
+            } else {
+                btn15.className = "px-4 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-500 hover:text-slate-800";
+                btn1H.className = "px-4 py-1.5 text-xs font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm";
+            }
+            loadChallengeData();
+        }
+
+        function renderPeriods() {
+            const periods = ['12:00', '15:00', '18:00', '21:00'];
+            periods.forEach(p => {
+                const btnId = p === '12:00' ? 'btn-period-12' : p === '15:00' ? 'btn-period-15' : p === '18:00' ? 'btn-period-18' : 'btn-period-21';
+                const badgeId = p === '12:00' ? 'badge-period-12' : p === '15:00' ? 'badge-period-15' : p === '18:00' ? 'badge-period-18' : 'badge-period-21';
+                
+                const btn = document.getElementById(btnId);
+                const badge = document.getElementById(badgeId);
+                const hasVotedAny = state.votedState[p] && Object.keys(state.votedState[p]).length > 0;
+
+                if (state.currentPeriod === p) {
+                    btn.className = "w-full p-4 rounded-2xl border transition-all flex items-center justify-between text-left border-brand-500/80 bg-brand-50/50 shadow-sm";
+                } else {
+                    btn.className = "w-full p-4 rounded-2xl border transition-all flex items-center justify-between text-left border-slate-200 hover:bg-slate-100 bg-white";
+                }
+
+                if (hasVotedAny) {
+                    badge.innerText = "已挑戰";
+                    badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700";
+                } else {
+                    badge.innerText = p === '12:00' ? "強烈建議" : "待挑戰";
+                    badge.className = p === '12:00' ? "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white animate-pulse" : "text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400";
+                }
+            });
+        }
+
+        async function renderComments() {
+            const list = document.getElementById('comments-list');
+            list.innerHTML = '';
+
+            if (isFirebaseActive) {
+                const commentsCol = collection(db, 'artifacts', appId, 'public', 'data', 'comments');
+                const snapshot = await getDocs(commentsCol);
+                let loadedComments = [];
+                snapshot.forEach(docSnap => {
+                    const d = docSnap.data();
+                    if (d.period === state.currentPeriod) {
+                        loadedComments.push({ id: docSnap.id, ...d });
+                    }
+                });
+
+                // Sort in memory by timestamp
+                loadedComments.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+                if (loadedComments.length === 0) {
+                    list.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">目前此時段尚無評論，快來發表全網第一條犀利解析！</p>`;
+                    return;
+                }
+
+                loadedComments.forEach(com => {
+                    const hasLiked = state.currentUser ? (com.likedBy || []).includes(auth.currentUser.uid) : false;
+                    const card = document.createElement('div');
+                    card.className = "p-4 bg-white rounded-2xl border border-slate-150 shadow-sm flex justify-between items-start";
+                    card.innerHTML = `
+                        <div class="space-y-1 pr-4">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs font-bold text-slate-700">${com.user}</span>
+                                <span class="text-[9px] bg-indigo-50 text-indigo-600 px-1.5 py-0.2 rounded-full font-bold">交易分析員</span>
+                            </div>
+                            <p class="text-xs text-slate-600 leading-relaxed">${com.content}</p>
+                        </div>
+                        <button onclick="likeComment('${com.id}')" class="px-3 py-1.5 rounded-xl border flex items-center space-x-1.5 transition-all text-xs font-bold ${hasLiked ? 'bg-amber-50 border-amber-300 text-amber-600' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}">
+                            <i class="fa-regular fa-thumbs-up"></i>
+                            <span>${com.likes || 0}</span>
+                        </button>
+                    `;
+                    list.appendChild(card);
+                });
+            } else {
+                const currentList = state.mockComments[state.currentPeriod] || [];
+                currentList.forEach(com => {
+                    const hasLiked = state.currentUser ? com.likedBy.includes(state.currentUser.account) : false;
+                    const card = document.createElement('div');
+                    card.className = "p-4 bg-white rounded-2xl border border-slate-150 shadow-sm flex justify-between items-start";
+                    card.innerHTML = `
+                        <div class="space-y-1 pr-4">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xs font-bold text-slate-700">${com.user}</span>
+                                <span class="text-[9px] bg-indigo-50 text-indigo-600 px-1.5 py-0.2 rounded-full font-bold">交易分析員</span>
+                            </div>
+                            <p class="text-xs text-slate-600 leading-relaxed">${com.content}</p>
+                        </div>
+                        <button onclick="likeComment('${com.id}')" class="px-3 py-1.5 rounded-xl border flex items-center space-x-1.5 transition-all text-xs font-bold ${hasLiked ? 'bg-amber-50 border-amber-300 text-amber-600' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'}">
+                            <i class="fa-regular fa-thumbs-up"></i>
+                            <span>${com.likes}</span>
+                        </button>
+                    `;
+                    list.appendChild(card);
+                });
+            }
+        }
+
+        async function postComment(e) {
+            e.preventDefault();
+            if (!state.currentUser) return;
+
+            const input = document.getElementById('comment-text-input');
+            const text = input.value.trim();
+            if (!text) return;
+
+            if (isFirebaseActive && auth?.currentUser) {
+                const commentsCol = collection(db, 'artifacts', appId, 'public', 'data', 'comments');
+                await addDoc(commentsCol, {
+                    period: state.currentPeriod,
+                    user: state.currentUser.nickname,
+                    userUid: auth.currentUser.uid,
+                    content: text,
+                    likes: 0,
+                    likedBy: [],
+                    timestamp: Date.now()
+                });
+            } else {
+                const newCom = {
+                    id: 'm_' + Date.now(),
+                    user: state.currentUser.nickname,
+                    content: text,
+                    likes: 0,
+                    likedBy: []
+                };
+                if (!state.mockComments[state.currentPeriod]) {
+                    state.mockComments[state.currentPeriod] = [];
+                }
+                state.mockComments[state.currentPeriod].unshift(newCom);
+                renderComments();
+            }
+
+            input.value = '';
+            showToast("分析發表成功！", "success");
+        }
+
+        async function likeComment(comId) {
+            if (!state.currentUser) {
+                showToast("登入後即可為優秀的解析點讚！", "error");
+                return;
+            }
+
+            if (isFirebaseActive && auth?.currentUser) {
+                const myUid = auth.currentUser.uid;
+                const commentDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'comments', comId);
+                const comSnap = await getDoc(commentDocRef);
+                
+                if (comSnap.exists()) {
+                    const cData = comSnap.data();
+                    let likedBy = cData.likedBy || [];
+                    let likes = cData.likes || 0;
+                    const creatorUid = cData.userUid;
+
+                    if (likedBy.includes(myUid)) {
+                        likedBy = likedBy.filter(id => id !== myUid);
+                        likes = Math.max(0, likes - 1);
+                        await updateDoc(commentDocRef, { likedBy, likes });
+                        
+                        // Deduct point from comment author
+                        if (creatorUid) {
+                            const creatorDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', creatorUid);
+                            const crSnap = await getDoc(creatorDocRef);
+                            if (crSnap.exists()) {
+                                const cr = crSnap.data();
+                                await updateDoc(creatorDocRef, {
+                                    score: Math.max(0, (cr.score || 0) - 1),
+                                    totalLikesReceived: Math.max(0, (cr.totalLikesReceived || 0) - 1)
+                                });
+                            }
+                        }
+                    } else {
+                        likedBy.push(myUid);
+                        likes += 1;
+                        await updateDoc(commentDocRef, { likedBy, likes });
+
+                        // Add point to comment author (+1 score per like)
+                        if (creatorUid) {
+                            const creatorDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', creatorUid);
+                            const crSnap = await getDoc(creatorDocRef);
+                            if (crSnap.exists()) {
+                                const cr = crSnap.data();
+                                await updateDoc(creatorDocRef, {
+                                    score: (cr.score || 0) + 1,
+                                    totalLikesReceived: (cr.totalLikesReceived || 0) + 1
+                                });
+                            }
+                        }
+                    }
+                    await loadSession();
+                }
+            } else {
+                const myAcc = state.currentUser.account;
+                const currentList = state.mockComments[state.currentPeriod] || [];
+                const com = currentList.find(c => c.id === comId);
+                
+                if (com) {
+                    if (com.likedBy.includes(myAcc)) {
+                        com.likedBy = com.likedBy.filter(acc => acc !== myAcc);
+                        com.likes = Math.max(0, com.likes - 1);
+                        state.currentUser.totalLikesReceived = Math.max(0, (state.currentUser.totalLikesReceived || 0) - 1);
+                        state.currentUser.score = Math.max(0, (state.currentUser.score || 0) - 1);
+                    } else {
+                        com.likedBy.push(myAcc);
+                        com.likes += 1;
+                        state.currentUser.totalLikesReceived = (state.currentUser.totalLikesReceived || 0) + 1;
+                        state.currentUser.score = (state.currentUser.score || 0) + 1;
+                    }
+                    
+                    const dbLocal = JSON.parse(localStorage.getItem('tq_users_db'));
+                    dbLocal[myAcc] = state.currentUser;
+                    localStorage.setItem('tq_users_db', JSON.stringify(dbLocal));
+                    await loadSession();
+                    renderComments();
+                }
+            }
+        }
+
+        function openAchievementsModal() {
+            document.getElementById('achievementsModal').classList.remove('hidden');
+            filterAchievements(state.activeAchievementFilter);
+        }
+
+        function filterAchievements(filter) {
+            state.activeAchievementFilter = filter;
+            const btnAll = document.getElementById('btn-ach-all');
+            const btnClaimable = document.getElementById('btn-ach-claimable');
+            const btnClaimed = document.getElementById('btn-ach-claimed');
+
+            btnAll.className = "px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50";
+            btnClaimable.className = "px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50";
+            btnClaimed.className = "px-4 py-2 rounded-xl text-xs font-bold bg-white text-slate-600 border border-slate-200 hover:bg-slate-50";
+
+            if (filter === 'all') btnAll.className = "px-4 py-2 rounded-xl text-xs font-black bg-indigo-50 text-indigo-600 border border-indigo-100";
+            else if (filter === 'claimable') btnClaimable.className = "px-4 py-2 rounded-xl text-xs font-black bg-amber-50 text-amber-600 border border-amber-100";
+            else if (filter === 'claimed') btnClaimed.className = "px-4 py-2 rounded-xl text-xs font-black bg-emerald-50 text-emerald-600 border border-emerald-100";
+
+            renderAchievements();
+        }
+
+        function renderAchievements() {
+            const list = document.getElementById('ach-list');
+            list.innerHTML = '';
+
+            const user = state.currentUser || { score: 0, wins: 0, losses: 0, participations: 0, streak: 0, lossStreak: 0, bullWins:0, bearWins:0, neutralWins:0, goldWins:0, btcWins:0, nasdaqWins:0, twWins:0, maxStreak: 0, maxLossStreak: 0, claimedAchievements: [], totalLikesReceived: 0 };
+            
+            let claimableCount = 0;
+            ACHIEVEMENTS_DB.forEach(ach => {
+                const isCompleted = ach.check(user);
+                const isClaimed = user.claimedAchievements && user.claimedAchievements.includes(ach.id);
+                if (isCompleted && !isClaimed) claimableCount++;
+            });
+
+            const badge = document.getElementById('claimable-badge');
+            if (claimableCount > 0) {
+                badge.innerText = claimableCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+
+            document.getElementById('total-ach-count').innerText = ACHIEVEMENTS_DB.length;
+
+            ACHIEVEMENTS_DB.forEach(ach => {
+                const isCompleted = ach.check(user);
+                const isClaimed = user.claimedAchievements && user.claimedAchievements.includes(ach.id);
+
+                if (state.activeAchievementFilter === 'claimable' && (!isCompleted || isClaimed)) return;
+                if (state.activeAchievementFilter === 'claimed' && !isClaimed) return;
+
+                const card = document.createElement('div');
+                card.className = `achievement-card p-4 rounded-2xl border transition-all ${isClaimed ? 'bg-slate-50 border-slate-200 opacity-70' : isCompleted ? 'bg-gradient-to-tr from-amber-50 to-amber-100/50 border-amber-300' : 'bg-white border-slate-150'}`;
+                
+                let btnHTML = '';
+                if (isClaimed) {
+                    btnHTML = `<span class="text-xs text-slate-400 font-bold"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i>已領取稱號</span>`;
+                } else if (isCompleted) {
+                    btnHTML = `<button onclick="claimAchievement(${ach.id})" class="px-3.5 py-1.5 bg-amber-500 text-white font-bold rounded-xl text-xs hover:bg-amber-600 transition shadow-md">領取稱號</button>`;
+                } else {
+                    btnHTML = `<span class="text-xs text-slate-400 font-bold italic"><i class="fa-solid fa-lock mr-1 text-slate-300"></i>未達成</span>`;
+                }
+
+                card.innerHTML = `
+                    <div class="flex flex-col justify-between h-full space-y-4">
+                        <div>
+                            <div class="flex items-center justify-between">
+                                <h4 class="font-black text-sm text-slate-800">${ach.name}</h4>
+                                <span class="text-[9px] px-2 py-0.5 rounded-full ${isCompleted ? 'bg-amber-100 text-amber-700 font-bold' : 'bg-slate-100 text-slate-400'}">
+                                    ${ach.reward ? '🎖️ 稱號' : '🔥 成就'}
+                                </span>
+                            </div>
+                            <p class="text-[11px] text-slate-500 mt-1 leading-tight">${ach.desc}</p>
+                            ${ach.reward ? `<p class="text-xs font-bold text-indigo-600 mt-2 flex items-center"><i class="fa-solid fa-signature mr-1.5 text-indigo-400"></i>獎勵稱號：【${ach.reward}】</p>` : ''}
+                        </div>
+                        <div class="flex justify-between items-center border-t pt-3 border-slate-100 mt-2">
+                            ${btnHTML}
+                        </div>
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        async function claimAchievement(id) {
+            if (!state.currentUser) return;
+
+            const ach = ACHIEVEMENTS_DB.find(a => a.id === id);
+            if (!ach) return;
+
+            if (isFirebaseActive && auth?.currentUser) {
+                const uid = auth.currentUser.uid;
+                const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', uid);
+                const docSnap = await getDoc(userDocRef);
+                if (docSnap.exists()) {
+                    const u = docSnap.data();
+                    let claimed = u.claimedAchievements || [];
+                    if (!claimed.includes(id)) {
+                        claimed.push(id);
+                        await updateDoc(userDocRef, { claimedAchievements: claimed });
+                        showToast(`🏆 稱號「${ach.reward}」領取成功！`, "success");
+                        await loadSession();
+                        filterAchievements(state.activeAchievementFilter);
+                    }
+                }
+            } else {
+                const myAcc = state.currentUser.account;
+                const dbLocal = JSON.parse(localStorage.getItem('tq_users_db'));
+                const user = dbLocal[myAcc];
+                
+                if (!user.claimedAchievements) user.claimedAchievements = [];
+                if (!user.claimedAchievements.includes(id)) {
+                    user.claimedAchievements.push(id);
+                    localStorage.setItem('tq_users_db', JSON.stringify(dbLocal));
+                    showToast(`🏆 稱號「${ach.reward}」領取成功！`, "success");
+                    await loadSession();
+                    filterAchievements(state.activeAchievementFilter);
+                }
+            }
+        }
+
+        function toggleProfilePanel() {
+            const panel = document.getElementById('profilePanel');
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                setTimeout(() => panel.classList.remove('translate-x-full'), 10);
+            } else {
+                panel.classList.add('translate-x-full');
+                setTimeout(() => panel.classList.add('hidden'), 300);
+            }
+        }
+
+        async function renderLeaderboard() {
+            const list = document.getElementById('leaderboard-container');
+            list.innerHTML = '';
+
+            let players = [];
+            if (isFirebaseActive) {
+                const usersCol = collection(db, 'artifacts', appId, 'public', 'data', 'users');
+                const snapshot = await getDocs(usersCol);
+                snapshot.forEach(docSnap => {
+                    const d = docSnap.data();
+                    players.push({
+                        nickname: d.nickname || '匿名交易員',
+                        score: d.score || 0,
+                        phaseScore: d.phaseScore || 0,
+                        wins: d.wins || 0,
+                        losses: d.losses || 0,
+                        streak: d.streak || 0
+                    });
+                });
+            } else {
+                const dbLocal = JSON.parse(localStorage.getItem('tq_users_db')) || {};
+                Object.keys(dbLocal).forEach(key => {
+                    const u = dbLocal[key];
+                    players.push({
+                        nickname: u.nickname || '匿名交易員',
+                        score: u.score || 0,
+                        phaseScore: u.phaseScore || 0,
+                        wins: u.wins || 0,
+                        losses: u.losses || 0,
+                        streak: u.streak || 0
+                    });
+                });
+            }
+
+            if (players.length === 0) {
+                LOCAL_LEADERBOARD_DB.forEach(p => {
+                    players.push({
+                        nickname: p.name,
+                        score: p.score,
+                        phaseScore: p.phaseScore,
+                        wins: 5,
+                        losses: 2,
+                        streak: p.streak
+                    });
+                });
+            }
+
+            if (state.leaderboardMode === 'phase') {
+                players.sort((a, b) => b.phaseScore - a.phaseScore);
+            } else {
+                players.sort((a, b) => b.score - a.score);
+            }
+
+            players.slice(0, 10).forEach((p, idx) => {
+                const rankCard = document.createElement('div');
+                rankCard.className = "flex items-center justify-between p-3 rounded-xl bg-white border border-slate-150 shadow-sm";
+                
+                let rankBadgeHTML = `<span class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">${idx+1}</span>`;
+                if (idx === 0) rankBadgeHTML = `<span class="w-6 h-6 rounded-full bg-amber-400 text-white flex items-center justify-center text-xs font-bold shadow-sm">🥇</span>`;
+                else if (idx === 1) rankBadgeHTML = `<span class="w-6 h-6 rounded-full bg-slate-300 text-white flex items-center justify-center text-xs font-bold shadow-sm">🥈</span>`;
+                else if (idx === 2) rankBadgeHTML = `<span class="w-6 h-6 rounded-full bg-orange-400 text-white flex items-center justify-center text-xs font-bold shadow-sm">🥉</span>`;
+
+                const totalGames = (p.wins || 0) + (p.losses || 0);
+                const winRate = totalGames > 0 ? ((p.wins / totalGames) * 100).toFixed(0) : "0";
+
+                rankCard.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        ${rankBadgeHTML}
+                        <div>
+                            <span class="text-xs font-bold block text-slate-700">${p.nickname}</span>
+                            <span class="text-[9px] text-slate-400">總勝率: ${winRate}% ${p.streak > 0 ? `| 🔥 ${p.streak} 連勝` : ''}</span>
+                        </div>
+                    </div>
+                    <span class="text-xs font-black text-slate-800">${state.leaderboardMode === 'phase' ? p.phaseScore : p.score} PTS</span>
+                `;
+                list.appendChild(rankCard);
+            });
+        }
+
+        function switchLeaderboardMode(mode) {
+            state.leaderboardMode = mode;
+            const btnPhase = document.getElementById('btn-lb-phase');
+            const btnTotal = document.getElementById('btn-lb-total');
+
+            if (mode === 'phase') {
+                btnPhase.className = "flex-1 py-1.5 font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm";
+                btnTotal.className = "flex-1 py-1.5 font-bold rounded-lg transition-all text-slate-500 hover:text-slate-800";
+            } else {
+                btnPhase.className = "flex-1 py-1.5 font-bold rounded-lg transition-all text-slate-500 hover:text-slate-800";
+                btnTotal.className = "flex-1 py-1.5 font-bold rounded-lg transition-all bg-white text-slate-800 shadow-sm";
+            }
+            renderLeaderboard();
+        }
+
+        function openAuthModal(tab) {
+            document.getElementById('authModal').classList.remove('hidden');
+            switchAuthTab(tab);
+        }
+
+        function switchAuthTab(tab) {
+            state.activeAuthTab = tab;
+            const tabL = document.getElementById('tab-login');
+            const tabR = document.getElementById('tab-register');
+            const regFields = document.getElementById('register-fields');
+            const errBox = document.getElementById('auth-error-msg');
+
+            errBox.classList.add('hidden');
+
+            if (tab === 'login') {
+                tabL.className = "flex-1 pb-3 text-sm font-black border-b-2 border-indigo-600 text-indigo-600";
+                tabR.className = "flex-1 pb-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600";
+                regFields.classList.add('hidden');
+            } else {
+                tabL.className = "flex-1 pb-3 text-sm font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-600";
+                tabR.className = "flex-1 pb-3 text-sm font-black border-b-2 border-indigo-600 text-indigo-600";
+                regFields.classList.remove('hidden');
+            }
+        }
+
+        async function handleAuthSubmit(e) {
+            e.preventDefault();
+            const errBox = document.getElementById('auth-error-msg');
+            errBox.classList.add('hidden');
+
+            const email = document.getElementById('auth-account').value.trim();
+            const pass = document.getElementById('auth-password').value.trim();
+            const nickname = document.getElementById('auth-nickname').value.trim();
+
+            const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailPattern.test(email)) {
+                errBox.innerText = "⚠️ 請輸入格式正確的電子信箱 (Email)！";
+                errBox.classList.remove('hidden');
+                return;
+            }
+
+            if (isFirebaseActive) {
+                try {
+                    if (state.activeAuthTab === 'register') {
+                        if (!nickname) {
+                            errBox.innerText = "⚠️ 註冊必須填寫玩家暱稱！";
+                            errBox.classList.remove('hidden');
+                            return;
+                        }
+                        const cred = await createUserWithEmailAndPassword(auth, email, pass);
+                        const userDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', cred.user.uid);
+                        await setDoc(userDocRef, {
+                            account: email,
+                            nickname: nickname,
+                            email: email,
+                            score: 0,
+                            phaseScore: 0,
+                            wins: 0,
+                            losses: 0,
+                            phaseWins: 0,
+                            phaseLosses: 0,
+                            currentPhase: getCurrentPhaseString(),
+                            bullWins: 0,
+                            bearWins: 0,
+                            neutralWins: 0,
+                            goldWins: 0,
+                            btcWins: 0,
+                            nasdaqWins: 0,
+                            twWins: 0,
+                            participations: 0,
+                            streak: 0,
+                            maxStreak: 0,
+                            lossStreak: 0,
+                            maxLossStreak: 0,
+                            totalLikesReceived: 0,
+                            claimedAchievements: [],
+                            registeredAt: Date.now()
+                        });
+                        showToast("註冊成功！已同步至 Firebase 雲端！", "success");
+                    } else {
+                        await signInWithEmailAndPassword(auth, email, pass);
+                        showToast("登入成功！數據同步完畢！", "success");
+                    }
+                    document.getElementById('authModal').classList.add('hidden');
+                    await loadSession();
+                } catch (err) {
+                    errBox.innerText = `⚠️ 錯誤: ${err.message}`;
+                    errBox.classList.remove('hidden');
+                }
+            } else {
+                const dbLocal = JSON.parse(localStorage.getItem('tq_users_db')) || {};
+                if (state.activeAuthTab === 'register') {
+                    if (dbLocal[email]) {
+                        errBox.innerText = "⚠️ 該信箱帳號已存在！";
+                        errBox.classList.remove('hidden');
+                        return;
+                    }
+                    if (!nickname) {
+                        errBox.innerText = "⚠️ 註冊必須填寫玩家暱稱！";
+                        errBox.classList.remove('hidden');
+                        return;
+                    }
+                    dbLocal[email] = {
+                        account: email,
+                        nickname: nickname,
+                        email: email,
+                        score: 0,
+                        phaseScore: 0,
+                        wins: 0,
+                        losses: 0,
+                        phaseWins: 0,
+                        phaseLosses: 0,
+                        currentPhase: getCurrentPhaseString(),
+                        bullWins: 0,
+                        bearWins: 0,
+                        neutralWins: 0,
+                        goldWins: 0,
+                        btcWins: 0,
+                        nasdaqWins: 0,
+                        twWins: 0,
+                        participations: 0,
+                        streak: 0,
+                        maxStreak: 0,
+                        lossStreak: 0,
+                        maxLossStreak: 0,
+                        totalLikesReceived: 0,
+                        claimedAchievements: [],
+                        registeredAt: Date.now()
+                    };
+                    localStorage.setItem('tq_users_db', JSON.stringify(dbLocal));
+                    localStorage.setItem('tq_logged_session', email);
+                    showToast("註冊成功！(已儲存至本機快取)", "success");
+                } else {
+                    const user = dbLocal[email];
+                    if (!user || user.account !== email) {
+                        errBox.innerText = "⚠️ 帳號或密碼輸入錯誤！";
+                        errBox.classList.remove('hidden');
+                        return;
+                    }
+                    localStorage.setItem('tq_logged_session', email);
+                    showToast("登入成功！歡迎回來！", "success");
+                }
+                document.getElementById('authModal').classList.add('hidden');
+                await loadSession();
+                renderLeaderboard();
+            }
+        }
+
+        async function logout() {
+            if (isFirebaseActive) {
+                await signOut(auth);
+                state.currentUser = null;
+                document.getElementById('guest-buttons').classList.remove('hidden');
+                document.getElementById('user-profile-widget').classList.add('hidden');
+                toggleProfilePanel();
+                showToast("已成功登出雲端帳號！", "info");
+                // Reset anonymous session
+                await signInAnonymously(auth);
+            } else {
+                localStorage.removeItem('tq_logged_session');
+                state.currentUser = null;
+                document.getElementById('guest-buttons').classList.remove('hidden');
+                document.getElementById('user-profile-widget').classList.add('hidden');
+                toggleProfilePanel();
+                showToast("已成功登出本地儲存！", "info");
+            }
+            renderLeaderboard();
+        }
+
+        // Exposing global interactive actions (Rule 2 compatibility)
+        window.openAchievementsModal = openAchievementsModal;
+        window.filterAchievements = filterAchievements;
+        window.claimAchievement = claimAchievement;
+        window.openAuthModal = openAuthModal;
+        window.switchAuthTab = switchAuthTab;
+        window.handleAuthSubmit = handleAuthSubmit;
+        window.logout = logout;
+        window.toggleProfilePanel = toggleProfilePanel;
+        window.selectPeriod = selectPeriod;
+        window.switchTimeframe = switchTimeframe;
+        window.handleVote = handleVote;
+        window.resetChallenge = resetChallenge;
+        window.postComment = postComment;
+        window.likeComment = likeComment;
+        window.switchLeaderboardMode = switchLeaderboardMode;
+
+    </script>
+</body>
+</html>
