@@ -570,15 +570,16 @@
         import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, onSnapshot, addDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Fallback Mock Config (Workspace workspace variables fallback)
-        const fallbackConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
+       // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAOL9t2pLPPs4zn9s05kNX7Il7rFoSAW9U",
+  authDomain: "trendquest-32021.firebaseapp.com",
+  projectId: "trendquest-32021",
+  storageBucket: "trendquest-32021.firebasestorage.app",
+  messagingSenderId: "409251931485",
+  appId: "1:409251931485:web:a208875847c203163734b4",
+  measurementId: "G-7VEK0TFVFG"
+};
 
         const firebaseConfig = typeof __firebase_config !== 'undefined' 
             ? JSON.parse(__firebase_config) 
